@@ -11,6 +11,7 @@
     "cli": "tsx apps/cli/src/index.ts",
     "worker": "tsx apps/worker/src/index.ts",
     "dashboard": "tsx apps/dashboard/src/index.ts",
+    "run-approved": "tsx apps/cli/src/index.ts run-approved",
     "start:shadow": "PM_LOOP_MODE=shadow PM_LOOP_INTERVAL_MS=60000 npm run worker",
     "start:assist": "PM_LOOP_MODE=assist PM_LOOP_INTERVAL_MS=60000 npm run worker",
     "typecheck": "tsc -p tsconfig.json --noEmit"

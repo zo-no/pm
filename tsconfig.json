@@ -31,6 +31,9 @@
       "@pm-loop/targets-local": [
         "packages/targets-local/src/index.ts"
       ],
+      "@pm-loop/execution-codex-local": [
+        "packages/execution-codex-local/src/index.ts"
+      ],
       "@pm-loop/patterns-local": [
         "packages/patterns-local/src/index.ts"
       ]

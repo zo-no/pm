@@ -1,5 +1,6 @@
 import {
   SystemClock,
+  proposeUseCase,
   detectUseCase,
   dispatchUseCase,
   evaluateUseCase,
@@ -15,6 +16,7 @@ import {
   type ExperimentOutcome,
   type Opportunity,
   type OutcomeReader,
+  type ProjectTarget,
   type Signal,
   type SpecDraft,
   type StateStore
@@ -26,9 +28,12 @@ import {
   MelodySyncShadowActionRunner,
   ShadowOutcomeReader
 } from "@pm-loop/adapter-melodysync";
+import { JsonFileApprovalGate } from "@pm-loop/approval-local";
+import { CodexCliExecutionRunner } from "@pm-loop/execution-codex-local";
 import { HeuristicLLMClient } from "@pm-loop/llm-openai";
 import { LocalPatternSource } from "@pm-loop/patterns-local";
 import { JsonFileStateStore } from "@pm-loop/storage-sqlite";
+import { LocalTargetRegistry } from "@pm-loop/targets-local";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -247,8 +252,10 @@ const runDemo = async (): Promise<void> => {
 };
 
 const stateFile = join(homedir(), "code", "pm-loop", "data", "state.json");
+const approvalStateFile = join(homedir(), "code", "pm-loop", "data", "approval-state.json");
 const reportFile = join(homedir(), "code", "pm-loop", "data", "latest-report.md");
 const patternFile = join(homedir(), "code", "pm-loop", "catalog", "patterns.json");
+const targetsFile = join(homedir(), "code", "pm-loop", "catalog", "targets.json");
 const maxActiveExperiments = Number(process.env.PM_LOOP_MAX_ACTIVE_EXPERIMENTS ?? "1");
 const defaultSince = (): string => {
   const date = new Date();
@@ -460,6 +467,40 @@ const runMelodySyncAssist = async (): Promise<void> => {
   console.log(JSON.stringify(summary, null, 2));
 };
 
+const runApproved = async (): Promise<void> => {
+  const proposalId = process.argv[3] ?? "";
+  const stateStore = new JsonFileStateStore({ filePath: stateFile });
+  const approvalGate = new JsonFileApprovalGate({ filePath: approvalStateFile });
+  const targetRegistry = new LocalTargetRegistry({ filePath: targetsFile });
+  const executionRunner = new CodexCliExecutionRunner();
+  const proposals = await approvalGate.listProposals({ status: ["approved"] });
+  const proposal = proposalId
+    ? proposals.find((item) => item.id === proposalId)
+    : [...proposals].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))[0];
+  if (!proposal) {
+    console.error(proposalId ? `No approved proposal found for ${proposalId}` : "No approved proposals available.");
+    process.exitCode = 1;
+    return;
+  }
+  const target: ProjectTarget | undefined = await targetRegistry.getTarget(proposal.targetId);
+  if (!target) {
+    throw new Error(`No target found for ${proposal.targetId}`);
+  }
+  const spec = await stateStore.getSpecByOpportunityId(proposal.opportunityId);
+  if (!spec) {
+    throw new Error(`No spec found for approved proposal ${proposal.id}`);
+  }
+  const { experiment } = await executionRunner.enqueueExecution({
+    target,
+    proposal,
+    spec,
+    owner: "codex-cli-runner",
+    mode: target.defaultExecutionMode,
+  });
+  await stateStore.saveExperiment(experiment);
+  console.log(JSON.stringify({ proposal, target, experiment }, null, 2));
+};
+
 const runReport = async (): Promise<void> => {
   const stateStore = new JsonFileStateStore({ filePath: stateFile });
   const opportunities = await stateStore.listOpportunities({ source: "melodysync" });
@@ -492,6 +533,8 @@ if (command === "demo") {
   await runMelodySyncAssist();
 } else if (command === "report") {
   await runReport();
+} else if (command === "run-approved") {
+  await runApproved();
 } else {
   console.error(`Unknown command: ${command}`);
   process.exitCode = 1;

@@ -100,6 +100,18 @@ Run one real assist cycle that reads MelodySync telemetry and writes proposals i
 npm run cli -- melodysync-assist
 ```
 
+After a proposal is approved, start a bounded Codex execution against the target repository:
+
+```bash
+npm run run-approved
+```
+
+Run a specific approved proposal by id:
+
+```bash
+npm run cli -- run-approved "proposal:..."
+```
+
 Render the latest stage report from persisted state:
 
 ```bash
@@ -167,6 +179,10 @@ The current UI is an approval console:
 - `Proposal Queue`: approve / reject / defer candidate changes
 - `Top Opportunities`: context only, no direct dispatch
 - `Running Loop`: active experiments and signals
+
+Approved work is still a separate step. `pm-loop` does not auto-merge and does not auto-push target repositories. The current execution handoff writes a detached Codex run plus execution receipts under:
+
+- `~/code/pm-loop/data/executions/`
 
 ## Target Architecture
 
