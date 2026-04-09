@@ -1,0 +1,37 @@
+[
+  {
+    "id": "pattern:bounded-autonomy",
+    "source": "best-practice/agent-systems",
+    "title": "Bounded Autonomy",
+    "summary": "Automate low-risk actions, but gate risky or user-visible changes behind review thresholds.",
+    "tags": ["agent", "自动化", "风险", "权限", "阈值", "guardrail"]
+  },
+  {
+    "id": "pattern:next-best-action",
+    "source": "best-practice/workbench",
+    "title": "Next Best Action",
+    "summary": "Always expose one clear next action so users and agents know how to move the workflow forward.",
+    "tags": ["工作台", "下一步", "next action", "任务", "推荐动作"]
+  },
+  {
+    "id": "pattern:stage-visibility",
+    "source": "best-practice/ops-ui",
+    "title": "Stage Visibility",
+    "summary": "Show pipeline stages, counts, and current blockers so complex loops stay understandable.",
+    "tags": ["阶段", "pipeline", "可视化", "状态", "report", "dashboard"]
+  },
+  {
+    "id": "pattern:closed-loop-telemetry",
+    "source": "best-practice/product-loop",
+    "title": "Closed Loop Telemetry",
+    "summary": "Every dispatched change should write back outcome signals so the system can learn from real results.",
+    "tags": ["数据", "反馈", "复盘", "telemetry", "signal", "evaluation"]
+  },
+  {
+    "id": "pattern:progressive-disclosure",
+    "source": "best-practice/product-ui",
+    "title": "Progressive Disclosure",
+    "summary": "Keep the default surface simple and reveal deeper control only when users need it.",
+    "tags": ["UI", "交互", "复杂度", "渐进", "panel", "surface"]
+  }
+]

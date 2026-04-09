@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@pm-loop/core": [
+        "packages/core/src/index.ts"
+      ],
+      "@pm-loop/core/*": [
+        "packages/core/src/*"
+      ],
+      "@pm-loop/adapter-melodysync": [
+        "packages/adapter-melodysync/src/index.ts"
+      ],
+      "@pm-loop/storage-sqlite": [
+        "packages/storage-sqlite/src/index.ts"
+      ],
+      "@pm-loop/approval-local": [
+        "packages/approval-local/src/index.ts"
+      ],
+      "@pm-loop/llm-openai": [
+        "packages/llm-openai/src/index.ts"
+      ],
+      "@pm-loop/targets-local": [
+        "packages/targets-local/src/index.ts"
+      ],
+      "@pm-loop/patterns-local": [
+        "packages/patterns-local/src/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "packages/**/*.ts",
+    "apps/**/*.ts"
+  ]
+}

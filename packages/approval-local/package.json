@@ -1,0 +1,9 @@
+{
+  "name": "@pm-loop/approval-local",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@pm-loop/core": "0.1.0"
+  }
+}

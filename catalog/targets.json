@@ -1,0 +1,40 @@
+{
+  "targets": [
+    {
+      "id": "target:melody-sync",
+      "label": "MelodySync",
+      "product": "MelodySync",
+      "repoPath": "/Users/kual/code/melody-sync",
+      "baseBranch": "main",
+      "telemetrySources": [
+        "melodysync"
+      ],
+      "approvalPolicy": "always_human",
+      "defaultExecutionMode": "assist",
+      "executionPolicy": {
+        "allowDirectApply": false,
+        "allowAutoMerge": false,
+        "requireTests": true,
+        "maxChangedFiles": 12
+      }
+    },
+    {
+      "id": "target:pm-loop",
+      "label": "PM Loop",
+      "product": "pm-loop",
+      "repoPath": "/Users/kual/code/pm-loop",
+      "baseBranch": "main",
+      "telemetrySources": [
+        "pm-loop"
+      ],
+      "approvalPolicy": "always_human",
+      "defaultExecutionMode": "assist",
+      "executionPolicy": {
+        "allowDirectApply": false,
+        "allowAutoMerge": false,
+        "requireTests": true,
+        "maxChangedFiles": 8
+      }
+    }
+  ]
+}

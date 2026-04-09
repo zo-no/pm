@@ -1,0 +1,23 @@
+{
+  "name": "pm-loop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "cli": "tsx apps/cli/src/index.ts",
+    "worker": "tsx apps/worker/src/index.ts",
+    "dashboard": "tsx apps/dashboard/src/index.ts",
+    "start:shadow": "PM_LOOP_MODE=shadow PM_LOOP_INTERVAL_MS=60000 npm run worker",
+    "start:assist": "PM_LOOP_MODE=assist PM_LOOP_INTERVAL_MS=60000 npm run worker",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}

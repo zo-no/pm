@@ -1,0 +1,11 @@
+{
+  "name": "@pm-loop/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@pm-loop/adapter-melodysync": "0.1.0",
+    "@pm-loop/core": "0.1.0",
+    "@pm-loop/storage-sqlite": "0.1.0"
+  }
+}
