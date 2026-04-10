@@ -17,6 +17,18 @@ The most important architectural rule is this:
 
 `pm-loop` may observe MelodySync, but it must not depend on MelodySync as its default executor.
 
+## Target Operator Model
+
+The steady-state operator experience should stay deliberately small:
+
+1. Register a product repo and its execution policy once.
+2. Let the background loop mine telemetry and patterns continuously.
+3. Let `pm-loop` rank and draft candidate requirements or changes.
+4. Ask the human for one primary interaction: approve, reject, or request revision.
+5. After approval, hand off execution and outcome evaluation automatically within policy bounds.
+
+The system should be autonomous in discovery, planning, execution, and evaluation. Human attention should concentrate at the approval boundary, not at every orchestration step.
+
 ## Runtime Split
 
 There are two runtimes to understand.
@@ -26,10 +38,10 @@ There are two runtimes to understand.
 The current implementation is a transitional runtime:
 
 - `EventSource`: reads MelodySync runtime history
-- `ActionRunner`: can dispatch bounded MelodySync child-session work
+- `ActionRunner`: can still dispatch bounded MelodySync child-session work in the legacy path
 - `OutcomeReader`: reads experiment outcomes back
 
-This runtime is useful for bootstrapping the loop, but it is not the target boundary because it couples execution to MelodySync.
+This runtime is useful for bootstrapping the loop, but it is not the target boundary because it still couples part of execution history to MelodySync-specific runtime assumptions.
 
 ### Target runtime
 
@@ -44,6 +56,7 @@ That means:
 - MelodySync can remain a data source
 - MelodySync can remain a dashboard host
 - MelodySync must stop being the default place where product changes are executed
+- the human checkpoint should be proposal approval, not repeated operator dispatching
 
 ## Layering
 
@@ -216,3 +229,5 @@ The current runtime should evolve in this order:
 5. Make repo-scoped Codex execution the default path for approved work.
 
 Until step 5 is complete, the running system is still transitional.
+
+That transition matters at the UX layer too: the target product is "approve the requirement and let the loop continue". The remaining gap is no longer the approval click itself, but finishing the removal of legacy MelodySync-coupled execution paths.

@@ -8,6 +8,7 @@ export interface ExecutionRunner {
     target: ProjectTarget;
     proposal: ChangeProposal;
     spec: SpecDraft;
+    approvalNote?: string;
     mode?: DispatchMode;
     owner?: string;
   }): Promise<{

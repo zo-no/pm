@@ -1,0 +1,22 @@
+{
+  "projects": [
+    {
+      "id": "pm-a",
+      "label": "PM A",
+      "targetId": "target:pm-b",
+      "sourceType": "peer-only",
+      "sourceId": "pm-a",
+      "dashboardPort": 4311,
+      "peerProjectIds": ["pm-b"]
+    },
+    {
+      "id": "pm-b",
+      "label": "PM B",
+      "targetId": "target:pm-a",
+      "sourceType": "peer-only",
+      "sourceId": "pm-b",
+      "dashboardPort": 4312,
+      "peerProjectIds": ["pm-a"]
+    }
+  ]
+}

@@ -12,8 +12,13 @@
     "worker": "tsx apps/worker/src/index.ts",
     "dashboard": "tsx apps/dashboard/src/index.ts",
     "run-approved": "tsx apps/cli/src/index.ts run-approved",
-    "start:shadow": "PM_LOOP_MODE=shadow PM_LOOP_INTERVAL_MS=60000 npm run worker",
-    "start:assist": "PM_LOOP_MODE=assist PM_LOOP_INTERVAL_MS=60000 npm run worker",
+    "start:shadow": "PM_LOOP_MODE=shadow PM_LOOP_INTERVAL_MS=600000 npm run worker",
+    "start:assist": "PM_LOOP_MODE=assist PM_LOOP_INTERVAL_MS=600000 npm run worker",
+    "start:guarded": "PM_LOOP_MODE=guarded PM_LOOP_INTERVAL_MS=600000 npm run worker",
+    "start:assist:pm-a": "PM_LOOP_PROJECT_ID=pm-a PM_LOOP_MODE=assist PM_LOOP_INTERVAL_MS=600000 npm run worker",
+    "start:assist:pm-b": "PM_LOOP_PROJECT_ID=pm-b PM_LOOP_MODE=assist PM_LOOP_INTERVAL_MS=600000 npm run worker",
+    "dashboard:pm-a": "PM_LOOP_PROJECT_ID=pm-a npm run dashboard",
+    "dashboard:pm-b": "PM_LOOP_PROJECT_ID=pm-b npm run dashboard",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

@@ -18,6 +18,26 @@ Important boundary:
 - host products may display `pm-loop`
 - host products must not be the default execution engine for `pm-loop`
 
+## User Interaction Model
+
+Target steady-state UX:
+
+1. Register the product repo as a `ProjectTarget`.
+2. Let `pm-loop` mine telemetry and patterns on a schedule.
+3. Review the ranked proposal it recommends.
+4. Approve or reject the proposal.
+5. After approval, let the system execute and evaluate the iteration within target policy.
+
+Human interaction should collapse to proposal confirmation, plus occasional policy or revision decisions. The loop should not require the operator to manually drive each execution step.
+
+Current implementation status:
+
+- scheduled discovery and proposal generation exist
+- durable proposal and approval state exist
+- repo-scoped execution runner exists
+- dashboard approval actions exist
+- the worker can auto-start approved proposals without a separate execution command
+
 ## Repository Layout
 
 ```text
@@ -76,8 +96,14 @@ ApprovalGate -> TargetRegistry -> ExecutionRunner
 
 ## Quick Start
 
+Set an explicit root when needed (optional):
+
 ```bash
-cd ~/code/pm-loop
+export PM_LOOP_ROOT="${PM_LOOP_ROOT:-$(pwd)}"
+```
+
+```bash
+cd "$PM_LOOP_ROOT"
 npm install
 npm run cli -- demo
 npm run cli -- melodysync-shadow
@@ -99,6 +125,16 @@ Run one real assist cycle that reads MelodySync telemetry and writes proposals i
 ```bash
 npm run cli -- melodysync-assist
 ```
+
+Run one real guarded cycle:
+
+```bash
+npm run cli -- melodysync-guarded
+```
+
+When the worker is running, approved proposals are picked up automatically and executed within the target policy.
+
+Use the manual execution command only as a fallback when you need to trigger an approved proposal without waiting for the worker:
 
 After a proposal is approved, start a bounded Codex execution against the target repository:
 
@@ -123,6 +159,7 @@ Start a long-running loop:
 ```bash
 npm run start:shadow
 npm run start:assist
+npm run start:guarded
 ```
 
 Override the polling interval when needed:
@@ -137,24 +174,25 @@ Override the concurrent experiment cap when needed:
 PM_LOOP_MODE=assist PM_LOOP_MAX_ACTIVE_EXPERIMENTS=2 npm run worker
 ```
 
-Local sidecar state is written to:
+Local sidecar state is written to (`$PM_LOOP_ROOT` or repository root inferred):
 
-- `~/code/pm-loop/data/state.json`
-- `~/code/pm-loop/data/latest-report.md`
-- `~/code/pm-loop/data/approval-state.json`
+- `<root>/data/state.json`
+- `<root>/data/latest-report.md`
+- `<root>/data/approval-state.json`
 
 Pattern seeds are stored in:
 
-- `~/code/pm-loop/catalog/patterns.json`
+- `<root>/catalog/patterns.json`
 
 Target registry seeds are stored in:
 
-- `~/code/pm-loop/catalog/targets.json`
+- `<root>/catalog/targets.json`
 
 If you run the worker as a detached process, store the PID and stop it with:
 
 ```bash
-kill "$(cat ~/code/pm-loop/data/worker.pid)"
+ROOT="${PM_LOOP_ROOT:-$(pwd)}"
+kill "$(cat "$ROOT/data/worker.pid")"
 ```
 
 ## Dashboard Access
@@ -169,20 +207,20 @@ http://127.0.0.1:7760/pm-loop.html
 
 It renders from:
 
-- `~/code/pm-loop/data/state.json`
-- `~/code/pm-loop/data/approval-state.json`
-- `~/code/pm-loop/data/latest-report.md`
-- `~/code/pm-loop/data/worker.log`
+- `<root>/data/state.json`
+- `<root>/data/approval-state.json`
+- `<root>/data/latest-report.md`
+- `<root>/data/worker.log`
 
-The current UI is an approval console:
+The current UI is an approval and review surface:
 
-- `Proposal Queue`: approve / reject / defer candidate changes
-- `Top Opportunities`: context only, no direct dispatch
-- `Running Loop`: active experiments and signals
+- approve / reject / defer queued proposals
+- proposal, opportunity, and experiment visibility
+- report and worker log inspection
 
-Approved work is still a separate step. `pm-loop` does not auto-merge and does not auto-push target repositories. The current execution handoff writes a detached Codex run plus execution receipts under:
+Approved work is still bounded by target policy. `pm-loop` does not auto-merge and does not auto-push target repositories. The current execution handoff writes a detached Codex run plus execution receipts under:
 
-- `~/code/pm-loop/data/executions/`
+- `<root>/data/executions/`
 
 ## Target Architecture
 

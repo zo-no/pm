@@ -1,13 +1,13 @@
 {
   "targets": [
     {
-      "id": "target:melody-sync",
-      "label": "MelodySync",
-      "product": "MelodySync",
-      "repoPath": "/Users/kual/code/melody-sync",
+      "id": "target:pm-a",
+      "label": "PM A",
+      "product": "pm-a",
+      "repoPath": "/Users/kualshown/Desktop/pm-a",
       "baseBranch": "main",
       "telemetrySources": [
-        "melodysync"
+        "pm-a"
       ],
       "approvalPolicy": "always_human",
       "defaultExecutionMode": "assist",
@@ -15,17 +15,17 @@
         "allowDirectApply": false,
         "allowAutoMerge": false,
         "requireTests": true,
-        "maxChangedFiles": 12
+        "maxChangedFiles": 8
       }
     },
     {
-      "id": "target:pm-loop",
-      "label": "PM Loop",
-      "product": "pm-loop",
-      "repoPath": "/Users/kual/code/pm-loop",
+      "id": "target:pm-b",
+      "label": "PM B",
+      "product": "pm-b",
+      "repoPath": "/Users/kualshown/Desktop/pm-b",
       "baseBranch": "main",
       "telemetrySources": [
-        "pm-loop"
+        "pm-b"
       ],
       "approvalPolicy": "always_human",
       "defaultExecutionMode": "assist",

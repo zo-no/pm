@@ -42,8 +42,9 @@ const buildPrompt = (input: {
   proposal: ChangeProposal;
   spec: SpecDraft;
   branchName: string;
+  approvalNote?: string;
 }): string => {
-  const { target, proposal, spec, branchName } = input;
+  const { target, proposal, spec, branchName, approvalNote } = input;
   return [
     `You are executing an approved PM Loop proposal in the repository at ${target.repoPath}.`,
     `Create and work on a git branch named ${branchName}.`,
@@ -52,6 +53,8 @@ const buildPrompt = (input: {
     `Proposal summary: ${proposal.summary}`,
     `Rationale: ${proposal.rationale}`,
     `Change type: ${proposal.changeType}`,
+    approvalNote ? `Operator instruction: ${approvalNote}` : null,
+    approvalNote ? "Treat the operator instruction as high-priority guidance unless it conflicts with the approved proposal." : null,
     `Spec trigger: ${spec.trigger}`,
     `Desired behavior: ${spec.desiredBehavior}`,
     `Non-goals: ${(spec.nonGoals || []).join("; ") || "None stated."}`,
@@ -63,7 +66,9 @@ const buildPrompt = (input: {
       ? "Run the relevant tests/checks before you finish. If tests cannot run, state why."
       : "Run lightweight validation when possible.",
     "Return a concise summary of changes, touched files, tests run, and any remaining risks.",
-  ].join("\n");
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
 };
 
 export class CodexCliExecutionRunner implements ExecutionRunner {
@@ -73,7 +78,11 @@ export class CodexCliExecutionRunner implements ExecutionRunner {
   private readonly reasoningEffort: string;
 
   constructor(options: CodexCliExecutionRunnerOptions = {}) {
-    this.runtimeDir = options.runtimeDir || join(homedir(), "code", "pm-loop", "data", "executions");
+    const root = process.env.PM_LOOP_ROOT;
+    const defaultRuntimeDir = root
+      ? join(root, "data", "executions")
+      : join(homedir(), "code", "pm-loop", "data", "executions");
+    this.runtimeDir = options.runtimeDir || defaultRuntimeDir;
     this.codexCommand = options.codexCommand || "codex";
     this.model = options.model || "gpt-5.4";
     this.reasoningEffort = options.reasoningEffort || "high";
@@ -83,6 +92,7 @@ export class CodexCliExecutionRunner implements ExecutionRunner {
     target: ProjectTarget;
     proposal: ChangeProposal;
     spec: SpecDraft;
+    approvalNote?: string;
     mode?: Experiment["mode"];
     owner?: string;
   }): Promise<{ experiment: Experiment }> {
@@ -99,6 +109,7 @@ export class CodexCliExecutionRunner implements ExecutionRunner {
       proposal: input.proposal,
       spec: input.spec,
       branchName,
+      approvalNote: input.approvalNote,
     });
     await writeFile(promptPath, prompt);
     const out = await import("node:fs").then((fs) => fs.openSync(logPath, "a"));
@@ -144,6 +155,7 @@ export class CodexCliExecutionRunner implements ExecutionRunner {
         id: experimentId,
         opportunityId: input.proposal.opportunityId,
         specId: input.proposal.specId,
+        proposalId: input.proposal.id,
         mode: input.mode || input.target.defaultExecutionMode,
         owner: input.owner || "codex-cli-runner",
         hostRefs: [receiptPath, logPath, promptPath, branchName],

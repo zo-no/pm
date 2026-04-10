@@ -13,6 +13,7 @@ export interface Experiment {
   id: string;
   opportunityId: string;
   specId: string;
+  proposalId?: string;
   mode: DispatchMode;
   owner: string;
   hostRefs: string[];

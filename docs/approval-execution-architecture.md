@@ -12,6 +12,15 @@ The design goal is:
 - controlled execution
 - measurable evaluation
 
+The intended operator experience is low-interaction:
+
+- register the target product once
+- review a proposed requirement or change when asked
+- confirm, reject, or revise it
+- let the system handle bounded execution and follow-up evaluation
+
+In steady state, the human should not need to manually drive every iteration step after approval.
+
 ## Why The Current Dispatch Model Is Transitional
 
 The current runtime can dispatch MelodySync child-session work through a host adapter.
@@ -51,7 +60,7 @@ The first usable flow should stay this small:
 1. Know the project path.
 2. Analyze the project and produce a proposed requirement.
 3. Let the human decide whether to include it.
-4. Only then execute the work.
+4. If approved, hand off execution automatically inside the target policy.
 
 In system terms that becomes:
 
@@ -95,6 +104,23 @@ The explicit review decision:
 - revised
 
 This should be a first-class durable object, not just a button click that vanishes.
+
+## Human Involvement Boundary
+
+The approval boundary is the main interaction contract.
+
+Humans should be responsible for:
+
+- selecting or registering the repo
+- confirming or rejecting proposed requirements
+- escalating policy or risk exceptions
+
+The system should be responsible for:
+
+- recurring discovery
+- proposal drafting and ranking
+- approved execution handoff
+- outcome evaluation and follow-up recommendations
 
 ## Required Ports
 
@@ -169,3 +195,5 @@ This keeps the system autonomous in discovery but bounded in execution.
 6. Demote MelodySync child-session dispatch to a legacy path.
 
 At that point `pm-loop` becomes a true independent PM control plane rather than a MelodySync-driven automation extension.
+
+Until that migration is complete, any remaining operator step beyond proposal confirmation should be treated as temporary implementation debt, not as the intended product UX.

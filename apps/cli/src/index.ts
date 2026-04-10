@@ -1,5 +1,6 @@
 import {
   SystemClock,
+  type ActionRunner,
   proposeUseCase,
   detectUseCase,
   dispatchUseCase,
@@ -8,7 +9,6 @@ import {
   planUseCase,
   scanUseCase,
   selectDispatchableOpportunity,
-  type ActionRunner,
   type Decision,
   type Event,
   type EventSource,
@@ -22,10 +22,7 @@ import {
   type StateStore
 } from "@pm-loop/core";
 import {
-  MelodySyncCliActionRunner,
-  MelodySyncRuntimeEventSource,
   MelodySyncRuntimeOutcomeReader,
-  MelodySyncShadowActionRunner,
   ShadowOutcomeReader
 } from "@pm-loop/adapter-melodysync";
 import { JsonFileApprovalGate } from "@pm-loop/approval-local";
@@ -34,9 +31,15 @@ import { HeuristicLLMClient } from "@pm-loop/llm-openai";
 import { LocalPatternSource } from "@pm-loop/patterns-local";
 import { JsonFileStateStore } from "@pm-loop/storage-sqlite";
 import { LocalTargetRegistry } from "@pm-loop/targets-local";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+import {
+  buildLoopConfig,
+  defaultWindowStart,
+  parseIntEnv,
+  parseIsoTimestamp,
+} from "../../shared/config.js";
+import { createProjectEventSource } from "../../shared/project-runtime.js";
 
 class MemoryStateStore implements StateStore {
   private readonly events: Event[] = [];
@@ -251,17 +254,18 @@ const runDemo = async (): Promise<void> => {
   );
 };
 
-const stateFile = join(homedir(), "code", "pm-loop", "data", "state.json");
-const approvalStateFile = join(homedir(), "code", "pm-loop", "data", "approval-state.json");
-const reportFile = join(homedir(), "code", "pm-loop", "data", "latest-report.md");
-const patternFile = join(homedir(), "code", "pm-loop", "catalog", "patterns.json");
-const targetsFile = join(homedir(), "code", "pm-loop", "catalog", "targets.json");
-const maxActiveExperiments = Number(process.env.PM_LOOP_MAX_ACTIVE_EXPERIMENTS ?? "1");
-const defaultSince = (): string => {
-  const date = new Date();
-  date.setDate(date.getDate() - 7);
-  return date.toISOString();
-};
+const loopConfig = buildLoopConfig();
+const projectSourceId = loopConfig.project?.sourceId ?? loopConfig.projectId;
+const projectLabel = loopConfig.project?.label ?? loopConfig.projectId;
+const stateFile = loopConfig.paths.stateFile;
+const approvalStateFile = loopConfig.paths.approvalStateFile;
+const reportFile = loopConfig.paths.reportFile;
+const patternFile = loopConfig.paths.patternFile;
+const targetsFile = loopConfig.paths.targetsFile;
+const maxActiveExperiments = parseIntEnv("PM_LOOP_MAX_ACTIVE_EXPERIMENTS", 1, { min: 1 });
+const buildDefaultSince = (): string => defaultWindowStart();
+
+const isProposalBlocking = (status: string): boolean => !["expired", "superseded"].includes(status);
 
 interface LoopSummary {
   mode: string;
@@ -271,7 +275,12 @@ interface LoopSummary {
   scan: { scanned: number; at: string; nextCursor?: string };
   detect: { signalCount: number; signals: Signal[] };
   plan: { opportunityCount: number; topOpportunities: Opportunity[]; spec?: SpecDraft };
-  dispatch: { experiment?: Experiment; targetOpportunityId?: string; skippedReason?: string };
+  dispatch: {
+    experiment?: Experiment;
+    proposalId?: string;
+    targetOpportunityId?: string;
+    skippedReason?: string;
+  };
   evaluate: { decisions: Decision[] };
 }
 
@@ -279,7 +288,7 @@ const renderMarkdownReport = async (
   summary: LoopSummary,
   stateStore: StateStore
 ): Promise<string> => {
-  const opportunities = (await stateStore.listOpportunities({ source: "melodysync" })).sort(
+  const opportunities = (await stateStore.listOpportunities({ source: projectSourceId })).sort(
     (a, b) => b.priorityScore - a.priorityScore
   );
   const experiments = await stateStore.listExperiments();
@@ -295,6 +304,7 @@ const renderMarkdownReport = async (
   const lines = [
     "# PM Loop Report",
     "",
+    `- project: ${projectLabel}`,
     `- mode: ${summary.mode}`,
     `- since: ${summary.since}`,
     `- scanned events: ${summary.scan.scanned}`,
@@ -350,6 +360,12 @@ const renderMarkdownReport = async (
     lines.push(`- status: ${summary.dispatch.experiment.status}`);
     lines.push(`- summary: ${summary.dispatch.experiment.summary || ""}`);
     lines.push("");
+  } else if (summary.dispatch.proposalId) {
+    lines.push("## Latest Proposal");
+    lines.push("");
+    lines.push(`- proposal id: ${summary.dispatch.proposalId}`);
+    lines.push(`- target opportunity: ${summary.dispatch.targetOpportunityId || "none"}`);
+    lines.push("");
   } else if (summary.dispatch.skippedReason) {
     lines.push("## Dispatch");
     lines.push("");
@@ -373,55 +389,91 @@ const renderMarkdownReport = async (
 };
 
 const writeReport = async (content: string): Promise<void> => {
-  await mkdir(join(homedir(), "code", "pm-loop", "data"), { recursive: true });
+  await mkdir(dirname(reportFile), { recursive: true });
   await writeFile(reportFile, content);
 };
 
 const runRealLoop = async (
-  mode: "shadow" | "assist"
+  mode: "shadow" | "assist" | "guarded"
 ): Promise<LoopSummary> => {
   const clock = new SystemClock();
   const stateStore = new JsonFileStateStore({ filePath: stateFile });
-  const eventSource = new MelodySyncRuntimeEventSource();
-  const actionRunner = mode === "assist" ? new MelodySyncCliActionRunner() : new MelodySyncShadowActionRunner();
-  const outcomeReader = mode === "assist" ? new MelodySyncRuntimeOutcomeReader() : new ShadowOutcomeReader();
+  const eventSource = createProjectEventSource(loopConfig);
+  const outcomeReader = mode === "shadow" ? new ShadowOutcomeReader() : new MelodySyncRuntimeOutcomeReader();
+  const approvalGate = new JsonFileApprovalGate({ filePath: approvalStateFile });
+  const targetRegistry = new LocalTargetRegistry({ filePath: targetsFile });
   const llm = new HeuristicLLMClient();
   const patternSource = new LocalPatternSource({ filePath: patternFile });
-  const since = process.argv[3] ?? defaultSince();
+  const since = parseIsoTimestamp(process.argv[3], buildDefaultSince());
 
   const scan = await scanUseCase({ clock, eventSource, stateStore }, { since });
-  const detect = await detectUseCase(stateStore, { since, source: "melodysync" });
+  const detect = await detectUseCase(stateStore, { since, source: projectSourceId });
   const evaluate = await evaluateUseCase({ clock, llm, outcomeReader, stateStore });
-  const plan = await planUseCase({ clock, llm, patternSource, stateStore }, { source: "melodysync" });
+  const plan = await planUseCase({ clock, llm, patternSource, stateStore }, { source: projectSourceId });
   const existingExperiments = await stateStore.listExperiments();
-  const dispatchTarget = selectDispatchableOpportunity(plan.opportunities, existingExperiments, {
-    maxActiveExperiments
-  });
-  const plannedForDispatch =
-    dispatchTarget && (!plan.spec || plan.spec.opportunityId !== dispatchTarget.id)
-      ? await planUseCase({
-          clock,
-          llm,
-          patternSource,
-          stateStore
-        }, {
-          source: "melodysync",
-          preferredOpportunityId: dispatchTarget.id
-        })
-      : plan;
+  const dispatchTarget = mode === "shadow"
+    ? null
+    : selectDispatchableOpportunity(plan.opportunities, existingExperiments, {
+      maxActiveExperiments
+    });
 
-  let dispatch: { experiment?: Experiment; targetOpportunityId?: string; skippedReason?: string } = {};
-  if (dispatchTarget) {
-    dispatch = await dispatchUseCase(
-      { actionRunner, clock, stateStore },
-      {
-        opportunityId: dispatchTarget.id,
-        mode,
-        owner: mode === "assist" ? "melodysync-cli-runner" : "melodysync-shadow-runner"
-      }
+  let plannedForDispatch = plan;
+  let dispatch: { experiment?: Experiment; proposalId?: string; targetOpportunityId?: string; skippedReason?: string } = {};
+
+  const topOpportunity = plan.opportunities[0];
+  if (mode !== "shadow" && dispatchTarget) {
+    const proposals = await approvalGate.listProposals();
+    const targets = await targetRegistry.listTargets();
+    const defaultTarget = loopConfig.project?.targetId
+      ? targets.find((target) => target.id === loopConfig.project?.targetId)
+      : targets.find((target) => target.telemetrySources.includes(projectSourceId));
+
+    const blockedByProposal = proposals.some(
+      (proposal) => isProposalBlocking(proposal.status) && proposal.opportunityId === dispatchTarget.id
     );
+
+    if (blockedByProposal) {
+      dispatch = {
+        targetOpportunityId: dispatchTarget.id,
+        skippedReason: "top opportunity is already queued for approval"
+      };
+    } else if (!defaultTarget) {
+      dispatch = {
+        targetOpportunityId: dispatchTarget.id,
+        skippedReason: `no target registry entry for project ${projectSourceId}`
+      };
+    } else {
+      if (!plan.spec || plan.spec.opportunityId !== dispatchTarget.id) {
+        plannedForDispatch = await planUseCase(
+          {
+            clock,
+            llm,
+            patternSource,
+            stateStore
+          },
+          {
+            source: projectSourceId,
+            preferredOpportunityId: dispatchTarget.id
+          }
+        );
+      }
+      const { proposal } = await proposeUseCase(
+        { approvalGate, clock, stateStore, targetRegistry },
+        {
+          opportunityId: dispatchTarget.id,
+          targetId: defaultTarget.id
+        }
+      );
+      dispatch = {
+        proposalId: proposal.id,
+        targetOpportunityId: dispatchTarget.id
+      };
+    }
+  } else if (mode === "shadow") {
+    dispatch = {
+      skippedReason: "shadow mode: proposal generation disabled"
+    };
   } else {
-    const topOpportunity = plan.opportunities[0];
     dispatch = {
       targetOpportunityId: topOpportunity?.id,
       skippedReason: topOpportunity
@@ -435,7 +487,7 @@ const runRealLoop = async (
   }
 
   const summary: LoopSummary = {
-    mode: `melodysync-${mode}`,
+    mode: `${loopConfig.projectId}-${mode}`,
     stateFile,
     reportFile,
     since,
@@ -472,7 +524,9 @@ const runApproved = async (): Promise<void> => {
   const stateStore = new JsonFileStateStore({ filePath: stateFile });
   const approvalGate = new JsonFileApprovalGate({ filePath: approvalStateFile });
   const targetRegistry = new LocalTargetRegistry({ filePath: targetsFile });
-  const executionRunner = new CodexCliExecutionRunner();
+  const executionRunner = new CodexCliExecutionRunner({
+    runtimeDir: loopConfig.paths.executionDir
+  });
   const proposals = await approvalGate.listProposals({ status: ["approved"] });
   const proposal = proposalId
     ? proposals.find((item) => item.id === proposalId)
@@ -503,8 +557,8 @@ const runApproved = async (): Promise<void> => {
 
 const runReport = async (): Promise<void> => {
   const stateStore = new JsonFileStateStore({ filePath: stateFile });
-  const opportunities = await stateStore.listOpportunities({ source: "melodysync" });
-  const signals = await stateStore.listSignals({ source: "melodysync" });
+  const opportunities = await stateStore.listOpportunities({ source: projectSourceId });
+  const signals = await stateStore.listSignals({ source: projectSourceId });
   const summary: LoopSummary = {
     mode: "report-only",
     stateFile,
@@ -531,6 +585,9 @@ if (command === "demo") {
   await runMelodySyncShadow();
 } else if (command === "melodysync-assist") {
   await runMelodySyncAssist();
+} else if (command === "melodysync-guarded") {
+  const summary = await runRealLoop("guarded");
+  console.log(JSON.stringify(summary, null, 2));
 } else if (command === "report") {
   await runReport();
 } else if (command === "run-approved") {
